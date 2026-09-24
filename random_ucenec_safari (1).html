@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#101827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Random učenec</title>
+<style>
+:root {
+  --bg:#101827; --card:#1a2538; --card2:#202d43; --text:#f7f9fc;
+  --muted:#aab5c7; --accent:#65d6a3; --accentText:#07140e;
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { margin:0; width:100%; min-height:100%; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+body { min-height:100dvh; overflow:hidden; }
+.app { min-height:100dvh; display:flex; flex-direction:column;
+  padding:max(14px,env(safe-area-inset-top)) 16px max(14px,env(safe-area-inset-bottom)); }
+.top { display:flex; align-items:center; justify-content:space-between; gap:12px; position:relative; z-index:20; }
+
+.classPicker { position:relative; flex:1; max-width:260px; }
+.classButton {
+  width:100%; background:var(--card); color:var(--text); border:1px solid #30405a;
+  border-radius:15px; padding:13px 42px 13px 15px; font-size:17px; font-weight:700;
+  text-align:left; position:relative; min-height:50px;
+}
+.classButton::after {
+  content:""; position:absolute; right:16px; top:50%; width:9px; height:9px;
+  border-right:2px solid var(--muted); border-bottom:2px solid var(--muted);
+  transform:translateY(-65%) rotate(45deg);
+}
+.classButton.open::after { transform:translateY(-25%) rotate(225deg); }
+.menu {
+  display:none; position:absolute; left:0; right:0; top:calc(100% + 7px);
+  background:var(--card2); border:1px solid #3a4b67; border-radius:15px;
+  padding:6px; box-shadow:0 14px 35px rgba(0,0,0,.4); max-height:55vh; overflow:auto;
+}
+.menu.open { display:block; }
+.menuItem {
+  width:100%; background:transparent; color:var(--text); border:0; border-radius:10px;
+  padding:13px 12px; font-size:16px; text-align:left; font-weight:600; min-height:46px;
+}
+.menuItem:active, .menuItem.selected { background:#30415d; }
+.session { text-align:right; font-size:12px; color:var(--muted); line-height:1.25; }
+.session b { color:var(--text); font-size:14px; }
+
+.stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; min-height:0; }
+.number { font-size:clamp(150px,48vw,330px); font-weight:850; line-height:.82; letter-spacing:-.06em;
+  min-height:.9em; display:flex; align-items:center; justify-content:center; width:100%;
+  text-shadow:0 8px 30px rgba(0,0,0,.25); }
+.name { margin-top:28px; font-size:clamp(34px,10vw,72px); font-weight:750; line-height:1.05; min-height:1.1em; }
+.hint { color:var(--muted); font-size:15px; margin-top:12px; min-height:20px; }
+button { border:0; font:inherit; cursor:pointer; }
+.start { width:min(520px,100%); border-radius:22px; padding:19px 22px; margin-bottom:8px;
+  background:var(--accent); color:var(--accentText); font-size:22px; font-weight:850;
+  box-shadow:0 8px 28px rgba(101,214,163,.22); }
+.start:active { transform:scale(.98); }
+.start:disabled { opacity:.45; }
+.reset { background:transparent; color:var(--muted); padding:10px 16px; font-size:13px; }
+.controls { padding-top:8px; }
+.pulse { animation:pulse .13s ease-out; }
+.fadein { animation:fadein .35s ease-out; }
+@keyframes pulse { 0%{transform:scale(1.08);opacity:.55} 100%{transform:scale(1);opacity:1} }
+@keyframes fadein { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.warning { color:#ff8989; }
+.disabled { opacity:.45; pointer-events:none; }
+
+@media (max-width:430px) {
+  .classButton { font-size:16px; }
+  .session { font-size:11px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="classPicker" id="picker">
+      <button id="classButton" class="classButton" type="button">Izberi razred</button>
+      <div id="menu" class="menu" role="menu"></div>
+    </div>
+    <div class="session" id="sessionInfo">Seja še ni začeta</div>
+  </div>
+
+  <main class="stage">
+    <div id="number" class="number">?</div>
+    <div id="name" class="name">Izberi razred</div>
+    <div id="hint" class="hint">Nato pritisni ZAČNI.</div>
+  </main>
+
+  <div class="controls">
+    <button id="start" class="start" type="button">🎲 ZAČNI</button>
+    <div style="text-align:center">
+      <button id="reset" class="reset" type="button">Ponastavi sejo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLASSES = {"8b-3": {"label": "8. B", "names": ["Alina", "Erazem", "Iza", "Lina", "Naia", "Nina", "Petja", "Ris", "Sebastjan", "Tanay", "Tine", "Tinkara", "Vidan", "Zakaria"]}, "8b": {"label": "8. B", "names": ["Alina", "Erazem", "Felix", "Iza", "Juna", "Liam", "Lina", "Maša", "Mila", "Naia", "Nina", "Nola", "Olivia", "Petja", "Ris", "Samo", "Sebastjan", "Tanay", "Taras", "Tayra", "Tine", "Tinkara", "Tom", "Ula", "Vidan", "Vitan", "Zakaria", "Zala"]}, "8b-4": {"label": "MAT 8b-4", "names": ["Samo", "Maša", "Tom", "Olivia", "Mila", "Taras", "Vitan", "Nola", "Tayra", "Zala", "Juna", "Liam", "Ula", "Felix"]}, "8c": {"label": "8. C", "names": ["Aleksandar", "Alojz", "Anur", "Bela", "David", "Dora", "Ella", "Gal", "Hana", "Jaka", "Jon", "Julija", "Jurij", "Kaja", "Laila", "Lev", "Maj", "Nika", "Nikita", "Nikolina", "Samo", "Tija", "Tim", "Tinkara", "Urška", "Vera", "Zoja"]}, "6b": {"label": "6.B", "names": ["Brin", "Maiia", "Marina", "Zarja", "Maja", "Iva", "Teo", "Anes", "Luka", "Jan", "Choi Dan", "Makar", "Zoja", "Julija", "Alina", "Katarina", "Mila P.", "Nana", "Ava", "Aleksandr", "Kim", "Roko", "Mila V.", "Alja", "Aleksander", "Anabela", "Kajetan"]}};
+const SESSION_MS = 45 * 60 * 1000;
+const ANIMATION_MS = 4200;
+const STORAGE_KEY = "randomUcenecSessionV2";
+
+const classButton = document.getElementById("classButton");
+const menu = document.getElementById("menu");
+const numberEl = document.getElementById("number");
+const nameEl = document.getElementById("name");
+const hintEl = document.getElementById("hint");
+const startBtn = document.getElementById("start");
+const resetBtn = document.getElementById("reset");
+const sessionInfo = document.getElementById("sessionInfo");
+
+let currentClass = null;
+let remaining = [];
+let sessionStarted = null;
+let timer = null;
+let running = false;
+
+function infoFor(sheet) { return CLASSES[sheet]; }
+
+function buildMenu() {
+  menu.innerHTML = "";
+  Object.keys(CLASSES).forEach(sheet => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "menuItem";
+    b.textContent = `${CLASSES[sheet].label} (${CLASSES[sheet].names.length})`;
+    b.addEventListener("click", () => selectClass(sheet));
+    menu.appendChild(b);
+  });
+}
+buildMenu();
+
+function openMenu() {
+  if (running) return;
+  menu.classList.add("open");
+  classButton.classList.add("open");
+}
+function closeMenu() {
+  menu.classList.remove("open");
+  classButton.classList.remove("open");
+}
+classButton.addEventListener("click", (e) => {
+  e.stopPropagation();
+  menu.classList.contains("open") ? closeMenu() : openMenu();
+});
+document.addEventListener("click", (e) => {
+  if (!document.getElementById("picker").contains(e.target)) closeMenu();
+});
+
+function selectClass(sheet) {
+  if (running) return;
+  currentClass = sheet;
+  classButton.textContent = `${CLASSES[sheet].label} (${CLASSES[sheet].names.length})`;
+  closeMenu();
+  resetSession(false);
+  numberEl.textContent = "?";
+  nameEl.textContent = CLASSES[sheet].label;
+  hintEl.textContent = "Razred je izbran. Pritisni ZAČNI.";
+}
+
+function saveState() {
+  if (!currentClass || !sessionStarted) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      currentClass, sessionStarted, remaining
+    }));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!s.currentClass || !CLASSES[s.currentClass] || !s.sessionStarted) return false;
+    if (Date.now() - s.sessionStarted >= SESSION_MS) return false;
+    currentClass = s.currentClass;
+    sessionStarted = s.sessionStarted;
+    remaining = Array.isArray(s.remaining) ? s.remaining : [...CLASSES[currentClass].names];
+    classButton.textContent = `${CLASSES[currentClass].label} (${CLASSES[currentClass].names.length})`;
+    timer = setInterval(updateSession, 1000);
+    updateSession();
+    hintEl.textContent = `Nadaljujemo sejo – še ${remaining.length} učencev ni bilo izbranih.`;
+    return true;
+  } catch(e) { return false; }
+}
+
+function resetSession(showMessage=true) {
+  clearInterval(timer);
+  currentClass = currentClass || Object.keys(CLASSES)[0];
+  remaining = [...CLASSES[currentClass].names];
+  sessionStarted = Date.now();
+  timer = setInterval(updateSession, 1000);
+  updateSession();
+  saveState();
+  if (showMessage) {
+    numberEl.textContent = "?";
+    nameEl.textContent = CLASSES[currentClass].label;
+    hintEl.textContent = "Nova 45-minutna seja – imena se ne bodo ponavljala.";
+    hintEl.classList.remove("warning");
+  }
+}
+
+function updateSession() {
+  if (!sessionStarted) return;
+  const left = SESSION_MS - (Date.now() - sessionStarted);
+  if (left <= 0) {
+    clearInterval(timer);
+    timer = null;
+    sessionStarted = null;
+    remaining = [];
+    try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    sessionInfo.innerHTML = "<b>Seja je potekla</b>";
+    hintEl.textContent = "Pritisni ZAČNI za novo 45-minutno sejo.";
+    hintEl.classList.add("warning");
+    return;
+  }
+  sessionInfo.innerHTML = `Seja<br><b>${Math.ceil(left/60000)} min</b>`;
+}
+
+resetBtn.addEventListener("click", () => {
+  if (running) return;
+  resetSession();
+});
+
+startBtn.addEventListener("click", () => {
+  if (running || !currentClass) return;
+
+  if (!sessionStarted || Date.now() - sessionStarted >= SESSION_MS) {
+    resetSession(false);
+  }
+  if (remaining.length === 0) {
+    hintEl.textContent = "Vsi učenci so že bili izbrani – začenjam nov krog.";
+    remaining = [...CLASSES[currentClass].names];
+    saveState();
+  }
+
+  running = true;
+  startBtn.disabled = true;
+  classButton.disabled = true;
+  classButton.classList.add("disabled");
+  hintEl.textContent = "Žrebanje …";
+  hintEl.classList.remove("warning");
+
+  const pool = [...remaining];
+  const finalName = pool[Math.floor(Math.random() * pool.length)];
+  const started = performance.now();
+  let lastChange = -Infinity;
+
+  function animate(t) {
+    const elapsed = t - started;
+    const p = Math.min(1, elapsed / ANIMATION_MS);
+    const interval = 45 + Math.pow(p, 3) * 500;
+
+    if (t - lastChange >= interval) {
+      const tempIndex = Math.floor(Math.random() * pool.length);
+      numberEl.textContent = tempIndex + 1;
+      nameEl.textContent = pool[tempIndex];
+      numberEl.classList.remove("pulse");
+      void numberEl.offsetWidth;
+      numberEl.classList.add("pulse");
+      lastChange = t;
+    }
+
+    if (elapsed < ANIMATION_MS) {
+      requestAnimationFrame(animate);
+    } else {
+      finish(finalName);
+    }
+  }
+  requestAnimationFrame(animate);
+});
+
+function finish(finalName) {
+  const names = CLASSES[currentClass].names;
+  const idx = names.indexOf(finalName);
+  numberEl.textContent = idx + 1;
+  nameEl.textContent = finalName;
+  numberEl.classList.remove("pulse");
+  void numberEl.offsetWidth;
+  numberEl.classList.add("fadein");
+  nameEl.classList.add("fadein");
+
+  remaining = remaining.filter(n => n !== finalName);
+  saveState();
+
+  hintEl.textContent = remaining.length
+    ? `Še ${remaining.length} učencev ni bilo izbranih.`
+    : "Vsi učenci so bili izbrani!";
+
+  running = false;
+  startBtn.disabled = false;
+  classButton.disabled = false;
+  classButton.classList.remove("disabled");
+  updateSession();
+}
+
+// Restore an active session if there is one; otherwise choose the first class.
+if (!loadState()) {
+  currentClass = Object.keys(CLASSES)[0];
+  classButton.textContent = `${CLASSES[currentClass].label} (${CLASSES[currentClass].names.length})`;
+  nameEl.textContent = CLASSES[currentClass].label;
+  hintEl.textContent = "Izberi razred in pritisni ZAČNI.";
+}
+</script>
+</body>
+</html>
